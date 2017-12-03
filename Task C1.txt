@@ -1,0 +1,227 @@
+--Creating Source Dimension
+Create table source_dim as
+Select distinct a.AIRPORTID as source_id, a.city, a.country, a.DST
+from AIRPORT a, ROUTE r
+where a.AIRPORTID = r.SOURCEAIRPORTID
+order by a.AIRPORTID;
+
+--Creating Destination Dimension
+Create table destination_dim as
+Select distinct a.AIRPORTID as destination_id, a.city, a.country,a.DST
+from AIRPORT a, ROUTE r
+where a.AIRPORTID = r.DESTAIRPORTID
+order by a.AIRPORTID;
+
+--Creating Passenger_Type Dimension (children,Teenager,Young, Adult)
+Create table passenger_type_dim
+(passTypeID number,
+ passTypeDesc varchar2 (20),
+ beginAge number,
+ endAge number
+ );
+
+Select max(age) from PASSENGER;
+--87
+
+--Inserting values into passenger type dimension
+Insert into passenger_type_dim values (1, 'Children', 0, 10);
+Insert into passenger_type_dim values (2, 'Teenager', 11, 17);
+Insert into passenger_type_dim values (3, 'Young Adult', 18, 35);
+Insert into passenger_type_dim values (4, 'Middle Adult', 36, 60);
+--Add a assumption for max age 87 so we hav taken 99
+Insert into passenger_type_dim values (5, 'Senior Adult', 61, 99);
+
+--Creating Nationality Dimension
+Create table nationality_dim as
+Select distinct p.NATIONALITY
+from PASSENGER p;
+
+--Create travel class Dimension
+Create table travel_class_dim
+(travelID number,
+ classTypeDesc varchar2 (20)
+ );
+
+-- Inserting values into travel class dimension
+Insert into travel_class_dim values (1, 'Business Class');
+Insert into travel_class_dim values (2, 'First Class');
+Insert into travel_class_dim values (3, 'Economy Class');
+
+
+--Create flight distance dimension
+Create table Flight_distance_dim
+(flightDistanceId number,
+ flightDistanceDesc varchar2 (20),
+ minimumDistance number,
+ maximumDistance number
+ );
+
+--Inserting data into flight Distance dimension
+Insert into Flight_distance_dim values (1, 'Small', 0,1199);
+Insert into Flight_distance_dim values (2, 'Medium', 1200,4000);
+Insert into Flight_distance_dim values (3, 'Large', 4001,10000);
+Insert into Flight_distance_dim values (4, 'Very Large', 10001,19999);
+
+--Create Airline dimension
+Create Table Airline_dim As
+Select a.AIRLINEID, a.NAME, a.COUNTRY, a.ACTIVE, round(1.0/count(p.SERVICEID),2) As
+WeightFactor , LISTAGG (p.SERVICEID, '_') Within Group (Order By
+p.SERVICEID) As ServiceGroupList
+From Airline a, Provides p
+Where a.AIRLINEID = p.AIRLINEID
+Group By a.AIRLINEID, a.NAME, a.COUNTRY, a.ACTIVE;
+
+--Create flight_type dimension
+Create table Flight_Type_dim
+(flightTypeId number,
+ flightTypeDesc varchar2 (20)
+ );
+  
+--Insert data into flight type dimension
+Insert into Flight_Type_dim values (1, 'Domestic');
+Insert into Flight_Type_dim values (2, 'International');
+
+--Creating Airline service dimension
+Create table Airline_Service_dim
+AS
+Select * from AIRLINE_SERVICE;
+
+--Creating provides bridge table
+Create table Provides_bridge
+AS
+Select * from PROVIDES;
+
+--Create time dimension
+Create table time_dim as
+Select distinct to_char(Flightdate,'MM') || to_char(Flightdate, 'YYYY') || to_char(Flightdate, 'DAY')as timeId, to_char(Flightdate, 'YYYY') as yearNo,
+to_char(Flightdate,'MM') as monthName,
+to_char(Flightdate, 'DAY') as weekDay from flight
+order by yearNo;
+
+--Create temporary passtransfact table
+Create table temp_passtransfact as
+Select r.sourceairportid, r.DESTAIRPORTID, p.nationality, ar.airlineid, count(p.passid) as TotalNumberOfPassengers,
+  sum(p.age) as TotalAgeOfPassengers, count(t.passid) as TotalNumberOfTransactions, sum(t.totalpaid) as SumOfTotalPaid,
+  sum(r.Distance) as TotalTravelDistance, sum(f.fare) as TotalFlightFare, p.AGE, f.fare, t.TOTALPAID, r.DISTANCE, a1.COUNTRY as SourceCountry, 
+  a2.country as DestCountry, f.FLIGHTDATE
+from Route r, airport a1, airport a2, flight f, transaction t, passenger p, airline ar
+where r.sourceairportid = a1.AIRPORTID and
+  r.DESTAIRPORTID = a2.AIRPORTID and
+  r.routeid = f.routeid and f.flightid = t.flightid and
+  p.passid = t.passid and
+  ar.AIRLINEID = r.AIRLINEID
+group by r.sourceairportid, r.DESTAIRPORTID, p.nationality, ar.airlineid, p.AGE, f.FARE, t.TOTALPAID, r.distance, a1.COUNTRY, a2.country, f.FLIGHTDATE;
+
+
+--Alter for passenger type
+Alter table temp_passtransfact
+add(passTypeID number);
+
+--update for passenger type
+update temp_passtransfact
+set passTypeID =1
+where Age >= 0
+and Age <= 10;
+
+update temp_passtransfact
+set passTypeID =2
+where Age >= 11
+and Age <= 17;
+
+update temp_passtransfact
+set passTypeID =3
+where Age >= 18
+and Age <= 35;
+
+update temp_passtransfact
+set passTypeID =4
+where Age >= 36
+and Age <= 60;
+
+update temp_passtransfact
+set passTypeID =5
+where Age >= 61
+and Age <= 99;
+
+-- Alter travel class dimension
+Alter table temp_passtransfact
+add(travelID number);
+
+-- Update queries for travel class dimension
+
+update temp_passtransfact
+set TRAVELID = 1
+where TOTALPAID >= 1.8*FARE;
+
+update temp_passtransfact
+set TRAVELID = 2
+where TOTALPAID >= 1.3*FARE
+and TOTALPAID < 1.8*FARE;
+
+update temp_passtransfact
+set TRAVELID = 3
+where TOTALPAID < 1.3*FARE;
+
+-- Alter table for Flight Distance Dim
+Alter table temp_passtransfact
+add(flightDistanceid number);
+
+-- Update queries for Flight Distance Dim
+
+update temp_passtransfact
+set FLIGHTDISTANCEID = 1
+where DISTANCE >= 0
+AND DISTANCE <= 1199;
+
+update temp_passtransfact
+set FLIGHTDISTANCEID = 2
+where DISTANCE >= 1200
+AND DISTANCE <= 4000;
+
+update temp_passtransfact
+set FLIGHTDISTANCEID = 3
+where DISTANCE >= 4001
+AND DISTANCE <= 10000;
+
+update temp_passtransfact
+set FLIGHTDISTANCEID = 4
+where DISTANCE >= 10001
+AND DISTANCE <= 19999;
+
+-- Alter table for Flight Type Dim
+Alter table temp_passtransfact
+add(flightTypeid number);
+
+-- Update queries for Flight Type Dim
+
+update temp_passtransfact
+set flightTypeid = 1
+where SOURCECOUNTRY = DESTCOUNTRY;
+
+update temp_passtransfact
+set flightTypeid = 2
+where SOURCECOUNTRY != DESTCOUNTRY;
+
+Create table passtransfact as
+Select f.passtypeid, f.NATIONALITY, f.TRAVELID, f.FLIGHTDISTANCEID, f.FLIGHTTYPEID, 
+        to_char(f.Flightdate,'MM') || to_char(f.Flightdate, 'YYYY') || to_char(f.Flightdate, 'DAY')as timeId,
+        f.SOURCEAIRPORTID, f.DESTAIRPORTID, f.AIRLINEID, f.TOTALNUMBEROFPASSENGERS, f.TOTALAGEOFPASSENGERS,
+        sum (f.SUMOFTOTALPAID - f.TOTALFLIGHTFARE) as TotalProfit, f.TOTALNUMBEROFTRANSACTIONS, f.SUMOFTOTALPAID, 
+        f.TOTALTRAVELDISTANCE, f.TOTALFLIGHTFARE
+from temp_passtransfact f
+group by f.passtypeid, f.NATIONALITY, f.TRAVELID, f.FLIGHTDISTANCEID, f.FLIGHTTYPEID, 
+        to_char(f.Flightdate,'MM') || to_char(f.Flightdate, 'YYYY') || to_char(f.Flightdate, 'DAY'),
+        f.SOURCEAIRPORTID, f.DESTAIRPORTID, f.AIRLINEID, f.TOTALNUMBEROFPASSENGERS, f.TOTALAGEOFPASSENGERS,
+        f.TOTALNUMBEROFTRANSACTIONS, f.SUMOFTOTALPAID, 
+        f.TOTALTRAVELDISTANCE, f.TOTALFLIGHTFARE;
+
+--Fact Table 2
+
+Create table Routesfact as
+Select r.sourceairportid, r.DESTAIRPORTID, ar.airlineid, count(r.ROUTEID) as TotalNumberOfRoutes,
+  sum(r.SERVICECOST) as TotalServiceCost, sum (r.DISTANCE) as TotalRouteDistance
+from Route r, airport a1, airport a2, airline ar
+where r.sourceairportid = a1.AIRPORTID and
+  r.DESTAIRPORTID = a2.AIRPORTID and
+  ar.AIRLINEID = r.AIRLINEID
+group by r.sourceairportid, r.DESTAIRPORTID, ar.airlineid;

@@ -1,0 +1,42 @@
+--Query 1 Show All
+--What is the total number of passengers who departed from cities of Australia each year?
+
+Select t.YEARNO as Year, s.city as Source_City, sum(f.TOTALNUMBEROFPASSENGERS) as Total_Number_Of_Passengers
+from source_dim s, passtransfact f, time_dim t
+where s.SOURCE_ID = f.SOURCEAIRPORTID and
+t.TIMEID = f.TIMEID and
+s.COUNTRY = 'Australia'
+group by t.YEARNO, s.city 
+order by t.YEARNO, s.city;
+
+--Query 2 
+-- Which are the top 3 airlines with maximum profit for Australia in the year 2007 and show whether they are active or not?
+
+SELECT *
+FROM
+(SELECT a.Name, a.ACTIVE, SUM(f.TOTALPROFIT) AS Profit,
+RANK() OVER (ORDER BY SUM(f.TOTALPROFIT) DESC ) AS
+Airline_RANK
+ FROM passtransfact f, AIRLINE_DIM a, TIME_DIM t
+ WHERE f.TIMEID = t.TIMEID
+AND f.AIRLINEID = a.AIRLINEID
+AND a.Country = 'Australia'
+AND t.YEARNO = 2007
+GROUP BY a.Name, a.ACTIVE)
+WHERE Airline_RANK <= 3;
+
+--Query 3 
+--Question: Calculate the top 5% of the total service cost of qantas airlines from different source cities?
+SELECT *
+FROM (
+ SELECT
+ s.CITY as source_city, ar.NAME,
+ sum(f.TotalServiceCost) AS Total_Service_Cost,
+ percent_rank() over
+ (order by sum(f.TotalServiceCost) ) as "Percent Rank"
+ FROM Routesfact f, source_dim s, AIRLINE_DIM ar
+ WHERE f.SOURCEAIRPORTID = s.source_id
+ AND f.AIRLINEID = ar.AIRLINEID
+ AND ar.NAME = 'Qantas'
+ GROUP BY s.CITY, ar.NAME
+) WHERE "Percent Rank" >= 0.95; 

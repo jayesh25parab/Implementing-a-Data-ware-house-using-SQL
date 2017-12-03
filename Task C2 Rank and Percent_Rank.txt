@@ -1,0 +1,28 @@
+--Report 13
+--Question-- What are the city ranks by total service cost of source airports in each country?
+SELECT s.country,s.city,
+TO_CHAR(SUM(TotalServiceCost)) AS TotalServiceCost,
+RANK() OVER (PARTITION BY s.country
+ORDER BY SUM(TotalServiceCost) DESC) AS RANK_BY_COUNTRY
+FROM source_dim s, routesfact r
+WHERE s.source_id=r.sourceairportid
+GROUP BY s.country,s.city; 
+
+--Report 14
+-- What is the top 10% total revenue by nationality('Angolan','Australian','British','Bangladeshi','Chinese','Batswana') and travel class 
+
+select * 
+from (
+ SELECT
+n.NATIONALITY, tr.classtypedesc,
+ sum(f.SUMOFTOTALPAID) as "Total Revenue",
+  percent_rank() over
+ (partition by n.nationality order by sum(f.SUMOFTOTALPAID)) as "Percent Rank by nationality",
+ percent_rank() over
+ (partition by tr.classtypedesc order by sum(f.SUMOFTOTALPAID)) as "Percent Rank by travel class"
+ FROM PASSTRANSFACT f, TRAVEL_CLASS_DIM tr, NATIONALITY_DIM n
+ WHERE tr.TRAVELID = f.TRAVELID
+ and n.NATIONALITY = f.NATIONALITY
+ and n.NATIONALITY IN ('Angolan','Australian','British','Bangladeshi','Chinese','Batswana')
+ GROUP BY n.NATIONALITY, tr.classtypedesc
+ ) where "Percent Rank by nationality" >= 0.9;

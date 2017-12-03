@@ -1,0 +1,30 @@
+--Report 7
+--Question-- What is the total revenue generated in the month of September for each flight type per travel class?
+SELECT t.YEARNO, t.MONTHNAME,
+decode(grouping(ft.FLIGHTTYPEDESC),1,'All Flight Type',ft.FLIGHTTYPEDESC) AS FlightType,
+decode(grouping(tr.CLASSTYPEDESC),1,'Any Class',tr.CLASSTYPEDESC) AS FlightClass,
+sum(f.SUMOFTOTALPAID) as Total_Revenue
+FROM TIME_DIM t, FLIGHT_TYPE_DIM ft, TRAVEL_CLASS_DIM tr, PASSTRANSFACT f
+WHERE f.TIMEID = t.TIMEID
+AND ft.FLIGHTTYPEID = f.FLIGHTTYPEID
+AND tr.TRAVELID = f.TRAVELID
+and t.YEARNO = 2007
+and t.MONTHNAME = 09
+GROUP BY CUBE(t.YEARNO, t.MONTHNAME, ft.FLIGHTTYPEDESC, tr.CLASSTYPEDESC)
+Order by t.YEARNO, t.MONTHNAME;
+
+--Report 8
+--Question-- What is the total travel distance travelled by selected airlines ('China Eastern Airlines','IndiGo Airlines','Virgin America') 
+--for each year per flight type
+SELECT 
+decode(grouping(t.YEARNO),1,'All Years',t.YEARNO) as Year,
+decode(grouping(a.NAME),1,'All AirLines',a.NAME) AS AirlineName,
+decode(grouping(ft.FLIGHTTYPEDESC),1,'All Types',ft.FLIGHTTYPEDESC) AS FlightType,
+sum(f.TotalTravelDistance) as Total_Distance
+FROM TIME_DIM t, AIRLINE_DIM a, FLIGHT_TYPE_DIM ft, PASSTRANSFACT f
+WHERE f.TIMEID = t.TIMEID
+AND ft.FLIGHTTYPEID = f.FLIGHTTYPEID
+AND a.airlineid = f.airlineid
+and a.name IN ('China Eastern Airlines','IndiGo Airlines','Virgin America')
+GROUP BY ROLLUP(t.YEARNO, a.NAME, ft.FLIGHTTYPEDESC)
+Order by t.YEARNO, a.NAME, ft.FLIGHTTYPEDESC;

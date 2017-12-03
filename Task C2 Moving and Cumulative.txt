@@ -1,0 +1,65 @@
+--Report 9
+--Question-- What are the total and cumulative monthly profits of small flight distance departing from Sydney airport in 2007?
+SELECT t.yearNo, t.monthname, f.flightdistancedesc, s.city as source_city,
+TO_CHAR (SUM(p.TotalProfit), '9,999,999,999') AS TotalProfit,
+TO_CHAR (SUM(SUM(p.TotalProfit)) OVER
+(ORDER BY t.yearNo, t.monthname, f.flightdistancedesc, s.city ROWS UNBOUNDED PRECEDING),
+'9,999,999,999') AS CUM_profit
+FROM time_dim t, passtransfact p, flight_distance_dim f, source_dim s
+WHERE t.TIMEID = p.TIMEID
+AND s.SOURCE_ID = p.SOURCEAIRPORTID
+and f.FLIGHTDISTANCEID = p.FLIGHTDISTANCEID
+AND t.YEARNO = 2007
+AND f.FLIGHTDISTANCEDESC = 'Small'
+and s.CITY = 'Sydney'
+GROUP BY t.yearNo, t.monthname, f.flightdistancedesc, s.city; 
+
+--Report 10
+--Question--What are the total and moving 3 monthly transactions of Australian passengers in 2009?
+SELECT t.YEARNO,t.MONTHNAME, n.NATIONALITY,
+TO_CHAR (SUM(p.TotalNumberofTransactions), '9,999,999,999') AS TotalTransactions,
+TO_CHAR (AVG(SUM(p.TotalNumberofTransactions)) OVER
+(ORDER BY t.YEARNO,t.MONTHNAME, n.NATIONALITY
+rows 2 preceding),
+ '9,999,999,999') AS moving_3_month_avg
+FROM TIME_DIM t, PASSTRANSFACT p, NATIONALITY_DIM n
+WHERE t.TIMEID = p.TIMEID
+AND n.NATIONALITY = p.NATIONALITY
+AND t.YEARNO=2009
+and n.NATIONALITY= 'Australian'
+GROUP BY t.YEARNO,t.MONTHNAME, n.NATIONALITY; 
+
+--Report 11 What are the total and cumulative monthly profits from Middle Adult passengers travelling by Southwest Airlines every year?
+
+SELECT p.PASSTYPEDESC, a.NAME, t.YEARNO, t.MONTHNAME, 
+TO_CHAR (SUM(f.TOTALPROFIT), '9,999,999,999') AS PROFIT,
+TO_CHAR (SUM(SUM(f.TOTALPROFIT)) OVER
+(PARTITION BY t.YEARNO ORDER BY p.PASSTYPEDESC, a.NAME, t.YEARNO, t.MONTHNAME desc
+ ROWS UNBOUNDED PRECEDING),
+'9,999,999,999') AS CUM_PROFIT
+FROM PASSENGER_TYPE_DIM p, PASSTRANSFACT f, TIME_DIM t, AIRLINE_DIM a
+WHERE p.passtypeid = f.passtypeid
+AND t.TIMEID = f.TIMEID
+AND a.AIRLINEID = f.AIRLINEID
+AND a.NAME = 'Southwest Airlines'
+AND p.PASSTYPEDESC = 'Middle Adult'
+GROUP BY p.PASSTYPEDESC, a.NAME, t.YEARNO, t.MONTHNAME; 
+
+
+--Report 12
+--What are the total and moving 3 monthly number of passengers travelling in business class in flights departing from canada?
+
+SELECT tr.CLASSTYPEDESC, s.COUNTRY, t.YEARNO,
+TO_CHAR(SUM(f.TOTALNUMBEROFPASSENGERS)) AS "NumberOf Passengers",
+TO_CHAR(AVG(SUM(f.TOTALNUMBEROFPASSENGERS)) OVER
+(PARTITION BY t.YEARNO ORDER BY SUM(f.TOTALNUMBEROFPASSENGERS)  
+ ROWS 2 PRECEDING)) AS MOVING_3_YEAR,
+TO_CHAR (AVG(SUM(f.TOTALNUMBEROFPASSENGERS)) OVER
+(partition by tr.classtypedesc ORDER BY sum(f.TOTALNUMBEROFPASSENGERS)   
+ ROWS 2 PRECEDING)) AS MOVING_3_TravelClass
+FROM PASSTRANSFACT f, TRAVEL_CLASS_DIM tr, SOURCE_DIM s, TIME_DIM t
+WHERE t.TIMEID = f.TIMEID
+AND tr.travelid = f.travelid
+and s.source_id = f.sourceairportid
+AND s.country = 'Canada'
+GROUP BY tr.CLASSTYPEDESC, s.COUNTRY, t.YEARNO;

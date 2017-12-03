@@ -1,0 +1,45 @@
+--Report 4 City-to-City Routes' Report
+select decode(grouping(s.CITY),1,'Any City',s.CITY) as "Departure City",
+decode(grouping(s.COUNTRY),1,'Any Country',s.COUNTRY) as "Departure Country",
+decode(grouping(d.CITY),1,'Any City',d.CITY) as "Arrival City",
+decode(grouping(d.COUNTRY),1,'Any Country',d.COUNTRY) as "Arrival Country",
+sum(r.TOTALNUMBEROFROUTES) as "Number of routes", 
+sum(r.TOTALROUTEDISTANCE)/sum(r.TOTALNUMBEROFROUTES) as "Average Distance"
+from destination_dim d, source_dim s, routesfact r
+where d.DESTINATION_ID= r.DESTAIRPORTID
+and s.SOURCE_ID = r.SOURCEAIRPORTID
+group by cube(s.CITY,s.COUNTRY,d.CITY, d.COUNTRY)
+order by s.CITY,s.COUNTRY,d.CITY,d.COUNTRY; 
+
+--Report 5 Airline's Report
+SELECT t.YEARNO, ar.NAME, 
+decode(grouping(ft.FLIGHTTYPEDESC),1,'All Flight Type',ft.FLIGHTTYPEDESC) AS FlightType, 
+decode(grouping(s.COUNTRY),1,'Any Country',s.COUNTRY) AS SourceCountry, 
+decode(grouping(d.COUNTRY),1,'Any Country',d.COUNTRY) AS DestinationCountry, 
+sum(f.TOTALNUMBEROFTRANSACTIONS) AS "Number of Transactions", 
+sum(f.TOTALPROFIT) AS "Average Agent Profit"
+FROM passtransfact f, time_dim t, airline_dim ar, Flight_Type_dim ft, source_dim s, destination_dim d
+WHERE f.TIMEID = t.TIMEID 
+and f.AIRLINEID = ar.AIRLINEID
+and f.FLIGHTTYPEID = ft.FLIGHTTYPEID
+and f.SOURCEAIRPORTID = s.SOURCE_ID
+and f.DESTAIRPORTID = d.DESTINATION_ID
+GROUP by  t.YEARNO, ar.NAME, rollup(ft.FLIGHTTYPEDESC, s.COUNTRY, d.COUNTRY)
+order by t.YEARNO, ar.NAME, ft.FLIGHTTYPEDESC, s.COUNTRY, d.COUNTRY;
+
+--Report 6 Flight's Report
+SELECT t.WEEKDAY,  
+decode(grouping(ft.FLIGHTTYPEDESC),1,'All Flight Type',ft.FLIGHTTYPEDESC) AS FlightType,
+decode(grouping(tr.CLASSTYPEDESC),1,'Any Class',tr.CLASSTYPEDESC) AS FlightClass,
+decode(grouping(s.COUNTRY),1,'Any Country',s.COUNTRY) AS SourceCountry, 
+decode(grouping(d.COUNTRY),1,'Any Country',d.COUNTRY) AS DestinationCountry, 
+sum(f.TOTALNUMBEROFTRANSACTIONS) AS "Number of Transactions", 
+(sum(f.SUMOFTOTALPAID)/ sum(f.TOTALNUMBEROFTRANSACTIONS)) AS "Average Paid Ticket (USD)"
+FROM passtransfact f, time_dim t, TRAVEL_CLASS_DIM tr, Flight_Type_dim ft, source_dim s, destination_dim d
+WHERE f.TIMEID = t.TIMEID 
+and f.TRAVELID = tr.TRAVELID
+and f.FLIGHTTYPEID = ft.FLIGHTTYPEID
+and f.SOURCEAIRPORTID = s.SOURCE_ID
+and f.DESTAIRPORTID = d.DESTINATION_ID
+GROUP by  t.WEEKDAY,  rollup(ft.FLIGHTTYPEDESC,tr.CLASSTYPEDESC, s.COUNTRY, d.COUNTRY)
+order by t.WEEKDAY, ft.FLIGHTTYPEDESC,tr.CLASSTYPEDESC, s.COUNTRY, d.COUNTRY;
