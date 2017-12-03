@@ -1,0 +1,8 @@
+<?xml version = '1.0' encoding = 'UTF-8'?>
+<OSDM_Design class="oracle.dbtools.crest.model.design.Design" name="E_R_Diagram" id="C6D112AD-678A-AAF4-9B25-BA16E869F69E" version="3.5">
+<createdBy>JATESH</createdBy>
+<createdTime>2016-10-01 02:18:04 UTC</createdTime>
+<ownerDesignName>E_R_Diagram</ownerDesignName>
+<capitalNames>false</capitalNames>
+<designId>C6D112AD-678A-AAF4-9B25-BA16E869F69E</designId>
+</OSDM_Design>
